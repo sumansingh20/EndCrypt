@@ -10,16 +10,26 @@ import { promisify } from 'util';
 
 // Configure AWS SDK
 const kms = new AWS.KMS({
-  region: process.env['AWS_REGION'] || 'us-east-1',
+  region: process.env['AWS_REGION'] || 'eu-north-1',
   accessKeyId: process.env['AWS_ACCESS_KEY_ID'],
   secretAccessKey: process.env['AWS_SECRET_ACCESS_KEY']
 });
 
 const secretsManager = new AWS.SecretsManager({
-  region: process.env['AWS_REGION'] || 'us-east-1',
+  region: process.env['AWS_REGION'] || 'eu-north-1',
   accessKeyId: process.env['AWS_ACCESS_KEY_ID'],
   secretAccessKey: process.env['AWS_SECRET_ACCESS_KEY']
 });
+
+// EndCrypt KMS Configuration
+const ENDCRYPT_KMS_CONFIG = {
+  alias: 'EndCrypt',
+  keyArn: 'arn:aws:kms:eu-north-1:728301184781:key/5e239a00-de10-43f1-b1df-8104ab293fbe',
+  keyId: '5e239a00-de10-43f1-b1df-8104ab293fbe',
+  materialId: 'd782038d0045ef0f07bfa34c29ae8235bbb29ea4af00886c44b5298ce20c19e0',
+  region: 'eu-north-1',
+  accountId: '728301184781'
+};
 
 // Encryption configuration
 const ENCRYPTION_CONFIG = {
@@ -28,7 +38,9 @@ const ENCRYPTION_CONFIG = {
   encryptionContext: {
     application: 'endcrypt-financial',
     environment: process.env['NODE_ENV'] || 'development',
-    version: '1.0.0'
+    version: '1.0.0',
+    keyAlias: ENDCRYPT_KMS_CONFIG.alias,
+    region: ENDCRYPT_KMS_CONFIG.region
   }
 };
 
@@ -100,13 +112,17 @@ export class AWSKMSService implements EncryptionService {
   private cacheTimeout: number;
 
   constructor(cmkId?: string) {
-    this.customerMasterKeyId = cmkId || process.env['AWS_KMS_KEY_ID'] || '';
+    this.customerMasterKeyId = cmkId || process.env['AWS_KMS_KEY_ID'] || ENDCRYPT_KMS_CONFIG.keyId;
     this.keyCache = new Map();
     this.cacheTimeout = 15 * 60 * 1000; // 15 minutes
     
     if (!this.customerMasterKeyId) {
       throw new Error('AWS KMS Customer Master Key ID is required');
     }
+    
+    console.log(`🔐 EndCrypt KMS Service initialized with key: ${ENDCRYPT_KMS_CONFIG.alias}`);
+    console.log(`📍 Region: ${ENDCRYPT_KMS_CONFIG.region}`);
+    console.log(`🆔 Key ID: ${this.customerMasterKeyId}`);
   }
 
   /**
@@ -470,12 +486,13 @@ export class AWSSecretsService {
   }
 }
 
-// Export singleton instances
+// Export singleton instances with EndCrypt configuration
 export const kmsService = new AWSKMSService();
 export const secretsService = new AWSSecretsService();
 
-// Export types
+// Export configuration and types
 export {
   AWS,
-  ENCRYPTION_CONFIG
+  ENCRYPTION_CONFIG,
+  ENDCRYPT_KMS_CONFIG
 };
